@@ -30,6 +30,7 @@ from pylearn2.space import CompositeSpace
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import Space
 from pylearn2.space import VectorSpace
+from pylearn2.space import IndexSpace
 from pylearn2.utils import function
 from pylearn2.utils import py_integer_types
 from pylearn2.utils import safe_union
