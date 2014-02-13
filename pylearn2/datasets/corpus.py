@@ -39,12 +39,12 @@ class PennTreebank(dataset.Dataset):
         if stop is None:
             stop = len(self._raw_data)
         self._num_target_words = num_target_words
-        self._raw_data = self._raw_data[start:stop]
+        self._raw_data = self._raw_data[start:stop].astype('int32')
         self._window_size = window_size
         self._X, self._y = self.get_data()
         self._X_space = IndexSpace(dim=self._window_size,
                                    max_labels=max(self._X) + 1)
-        self._y_space = IndexSpace(dim=1, max_labels=self._num_target_words)
+        self._y_space = IndexSpace(dim=1, max_labels=self._num_target_words + 1)
         self._data_specs = ((CompositeSpace((self._X_space, self._y_space))),
                             ('features', 'targets'))
         self._iter_mode = 'random_uniform'
@@ -118,6 +118,8 @@ class PennTreebank(dataset.Dataset):
         return True
 
     def get(self, indices):
+        if isinstance(indices, slice):
+            indices = np.arange(indices.start, indices.stop, indices.step)
         X_indices = np.repeat(indices, self._window_size) + \
             np.tile(np.arange(self._window_size), len(indices))
         y_indices = indices + self._window_size

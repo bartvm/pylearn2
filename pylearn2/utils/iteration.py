@@ -16,6 +16,7 @@ Presets:
                   container is empty after num_examples / batch_size calls
 """
 from __future__ import division
+import pdb
 import warnings
 import numpy
 np = numpy
@@ -487,8 +488,9 @@ class FiniteDatasetIterator(object):
             init_fn = self._convert[i]
             fn = init_fn
             # Compose the functions
-            needs_cast = not (np.dtype(config.floatX) ==
-                              self._raw_data[i].dtype)
+            # needs_cast = not (np.dtype(config.floatX) ==
+            # self._raw_data[i].dtype)
+            needs_cast = False
             if needs_cast:
                 if fn is None:
                     fn = lambda batch: numpy.cast[config.floatX](batch)

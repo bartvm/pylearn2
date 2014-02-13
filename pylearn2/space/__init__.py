@@ -35,6 +35,7 @@ __email__ = "goodfeli@iro"
 import functools
 import numpy as np
 import warnings
+import pdb
 
 from theano import config
 from theano.gof.op import get_debug_values
@@ -431,11 +432,16 @@ class IndexSpace(Space):
                 rval = self.formatter.format(batch, sparse=space.sparse,
                                              mode='concatenate')
             else:
-                raise ValueError("Can't convert IndexSpace to"
-                                 "VectorSpace (%d labels to %d dimensions)"
-                                 % (self.dim, space.dim))
+                raise ValueError("Can't convert IndexSpace to "
+                                 "VectorSpace (%d labels, %d max_labels,"
+                                 "to %d dimensions)"
+                                 % (self.dim, self.max_labels,  space.dim))
             return rval
+        elif isinstance(space, IndexSpace):
+            if space.dim == self.dim and space.max_labels == self.max_labels:
+                return batch
         else:
+            pdb.set_trace()
             raise ValueError("Can't convert IndexSpace to %(space)s"
                              % (space.__class__.__name__))
 
