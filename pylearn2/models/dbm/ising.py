@@ -22,6 +22,7 @@ and the probability that :math:`h` is 1 is given by
 
     \sigma(2T \dot z)
 """
+
 __authors__ = ["Ian Goodfellow", "Vincent Dumoulin"]
 __copyright__ = "Copyright 2012, Universite de Montreal"
 __credits__ = ["Ian Goodfellow"]
@@ -40,11 +41,9 @@ import theano.tensor as T
 import warnings
 
 from pylearn2.expr.nnet import sigmoid_numpy
-from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from pylearn2.linear.matrixmul import MatrixMul
-from pylearn2.models.dbm import HiddenLayer
 from pylearn2.models.dbm import init_sigmoid_bias_from_array
-from pylearn2.models.dbm import VisibleLayer
+from pylearn2.models.dbm.layer import HiddenLayer, VisibleLayer
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
 from pylearn2.utils import sharedX
@@ -641,7 +640,7 @@ class IsingHidden(HiddenLayer):
             WRITEME properly
 
         Returns a shared variable containing an actual state
-       (not a mean field state) for this variable.
+        (not a mean field state) for this variable.
         """
         driver = numpy_rng.uniform(0., 1., (num_examples, self.dim))
         on_prob = sigmoid_numpy(2. * self.beta.get_value() *
