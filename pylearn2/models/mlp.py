@@ -30,6 +30,7 @@ from pylearn2.space import CompositeSpace
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import Space
 from pylearn2.space import VectorSpace
+from pylearn2.space import IndexSpace
 from pylearn2.utils import function
 from pylearn2.utils import py_integer_types
 from pylearn2.utils import safe_union
@@ -834,6 +835,79 @@ class MLP(Layer):
         rval = '\n'.join(rval)
         return rval
 
+class ProjectionLayer(Layer):
+    """
+    This layer can be used to project discrete labels into a continous space
+    as done in e.g. language models. It takes labels as an input (IndexSpace)
+    and maps them to their continous embeddings and concatenates them.
+    """
+    def __init__(self, dim, layer_name, irange=None, istdev=None):
+        """
+        Initializes a projection layer.
+
+        Parameters
+        ----------
+        dim : int
+            The dimension of the embeddings. Note that this means that the
+            output dimension is (dim * number of input labels)
+        layer_name : string
+            Layer name
+        irange : numeric
+           The range of the uniform distribution used to initialize the
+           embeddings. Can't be used with istdev.
+        istdev : numeric
+            The standard deviation of the normal distribution used to
+            initialize the embeddings. Can't be used with irange.
+        """
+        super(ProjectionLayer, self).__init__()
+        self.dim = dim
+        self.layer_name = layer_name
+        if irange is None and istdev is None:
+            raise ValueError("ProjectionLayer needs either irange or"
+                             "istdev in order to intitalize the projections.")
+        elif irange is not None and istdev is not None:
+            raise ValueError("ProjectionLayer was passed both irange and istdev"
+                             "but needs only one")
+        else:
+            self._irange = irange
+            self._istdev = istdev
+
+    @wraps(Layer.set_input_space)
+    def set_input_space(self, space):
+        if isinstance(space, IndexSpace):
+            self.input_dim = space.dim
+            self.input_space = space
+        else:
+            raise ValueError("ProjectionLayer needs an IndexSpace as input")
+        self.output_space = VectorSpace(self.dim * self.input_dim)
+        rng = self.mlp.rng
+        if self._irange is not None:
+            W = rng.uniform(-self._irange,
+                            self._irange,
+                            (space.max_labels, self.dim)) * \
+                (rng.uniform(0., 1., (space.max_labels, self.dim)))
+        else:
+            W = rng.randn(space.max_labels, self.dim) * self._istdev
+
+        W = sharedX(W)
+        W.name = self.layer_name + '_W'
+
+        self.transformer = MatrixMul(W)
+
+        W, = self.transformer.get_params()
+        assert W.name is not None
+
+    @wraps(Layer.fprop)
+    def fprop(self, state_below):
+        z = self.transformer.project(state_below)
+        return z
+
+    @wraps(Layer.get_params)
+    def get_params(self):
+        W, = self.transformer.get_params()
+        assert W.name is not None
+        params = [W]
+        return params
 
 class Softmax(Layer):
     """
@@ -2923,12 +2997,15 @@ class CompositeLayer(Layer):
 
     @wraps(Layer.set_input_space)
     def set_input_space(self, space):
+        if isinstance(space, CompositeSpace):
+            assert len(space.components) == len(self.layers)
+            for layer, sub_space in zip(self.layers, space.components):
+                layer.set_input_space(sub_space)
+        else:
+            for layer in self.layers:
+                layer.set_input_space(space)
 
         self.input_space = space
-
-        for layer in self.layers:
-            layer.set_input_space(space)
-
         self.output_space = CompositeSpace(tuple(layer.get_output_space()
                                                  for layer in self.layers))
 
@@ -3000,7 +3077,7 @@ class FlattenerLayer(Layer):
 
     @wraps(Layer.set_input_space)
     def set_input_space(self, space):
-
+        self.input_space = space
         self.raw_layer.set_input_space(space)
         total_dim = self.raw_layer.get_output_space().get_total_dimension()
         self.output_space = VectorSpace(total_dim)

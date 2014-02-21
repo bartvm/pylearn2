@@ -1,0 +1,80 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.corpus.NRCNNJM {
+        which_set: 'train',
+        data_mode: 1
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        layers: [
+            !obj:pylearn2.models.mlp.FlattenerLayer {
+              raw_layer: !obj:pylearn2.models.mlp.CompositeLayer {
+                layer_name: 'composite_projection',
+                layers: [
+                  !obj:pylearn2.models.mlp.ProjectionLayer {
+                      layer_name: 'projection_source',
+                      dim: 256,
+                      irange: 0.01
+                  },
+                  !obj:pylearn2.models.mlp.ProjectionLayer {
+                      layer_name: 'projection_target',
+                      dim: 256,
+                      irange: 0.01
+                  }
+                ]
+              }
+            }, !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: 'rectified_linear',
+                dim: 512,
+                irange: 0.01
+            }, !obj:pylearn2.models.mlp.Softmax {
+                layer_name: 'softmax',
+                n_classes: 32053,
+                irange: 0.01
+            }
+        ],
+        input_space: !obj:pylearn2.space.CompositeSpace {
+          components: [
+            !obj:pylearn2.space.IndexSpace {
+              dim: 11,
+              max_labels: 16028
+            },
+            !obj:pylearn2.space.IndexSpace {
+              dim: 3,
+              max_labels: 16053
+            }
+          ]
+        },
+        input_source: !!python/tuple ['source_context', 'target_context']
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 250,
+        learning_rate: .1,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: .5,
+        },
+        monitoring_dataset: {
+            'valid' : !obj:pylearn2.datasets.corpus.NRCNNJM {
+                which_set: 'valid',
+                data_mode: 1
+            }
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+            channel_name: 'valid_softmax_nll',
+            prop_decrease: 0.,
+            N: 10
+        },
+        cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
+          input_include_probs: {
+            'composite_projection': 1.
+          },
+          input_scales: {
+            'composite_projection': 1.
+          }
+        }
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_softmax_nll',
+             save_path: "bolt_best.pkl"
+        }
+    ],
+}

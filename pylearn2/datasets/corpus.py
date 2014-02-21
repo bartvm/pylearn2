@@ -198,20 +198,26 @@ class NRCNNJM(dataset.Dataset):
             self.target_ctxt = target_ctxt
             self._raw_data = (self.source_ctxt, self.target_ctxt)
             self._X = self._raw_data
-            self._y = targets.astype('int32')
+            self._y = np.atleast_2d(targets.astype('int32')).T
             self._source_ctxt_space = IndexSpace(dim=src_context_size,
-                                                 max_labels=np.max(self.source_ctxt))
+                                                 max_labels=np.max(self.source_ctxt) + 1)
             self._target_ctxt_space = IndexSpace(dim=target_context_size,
-                    max_labels=np.max(self.source_ctxt))
+                    max_labels=np.max(self.target_ctxt) + 1)
 
             self._y_space = IndexSpace(dim=target_context_size,
-                                       max_labels=np.max(self.target_ctxt))
+                                       max_labels=np.max(self._y) + 1)
 
             self.data_len = self.source_ctxt.shape[0]
 
-            self._data_specs = (CompositeSpace((CompositeSpace((self._source_ctxt_space,
-                                self._target_ctxt_space)), self._y_space)), ('features',
-                                                                            'targets'))
+            self._data_specs = (CompositeSpace((
+                self._source_ctxt_space,
+                self._target_ctxt_space,
+                self._y_space)
+            ), (
+                'source_context',
+                'target_context',
+                'targets')
+            )
 
         self._iter_mode = 'random_uniform'
         self._iter_batch_size = 50
@@ -293,25 +299,25 @@ class NRCNNJM(dataset.Dataset):
 
     def get_data(self):
         if self.data_mode == 0:
-            X = self._X
-            Y = self._y
+            X = (self._X,)
+            Y = (self._y,)
         else:
             X = (self.source_ctxt, self.target_ctxt)
-            Y = self._y
-        return (X, Y)
+            Y = (self._y,)
+        return X + Y
 
     def get(self, indices):
         if isinstance(indices, slice):
             indices = np.arange(indices.start, indices.stop, indices.step)
 
         if self.data_mode == 0:
-            X_batch = self._X[indices]
-            y_batch = self._y[indices]
+            X_batch = (self._X[indices],)
+            y_batch = (self._y[indices],)
         else:
             X_batch = (self.source_ctxt[indices], self.target_ctxt[indices])
-            y_batch = self._y[indices]
+            y_batch = (self._y[indices],)
 
-        return (X_batch, y_batch)
+        return X_batch + y_batch
 
     def get_data_specs(self):
         return self._data_specs

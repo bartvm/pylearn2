@@ -417,6 +417,14 @@ class IndexSpace(Space):
                     dim=self.dim,
                     max_labels=self.max_labels)
 
+    def __eq__(self, other):
+        return (type(self) == type(other) and
+                self.max_labels == other.max_labels and
+                self.dim == other.dim)
+
+    def __ne__(self, other):
+        return (not self == other)
+
     @functools.wraps(Space.get_total_dimension)
     def get_total_dimension(self):
         return self.dim
@@ -431,13 +439,12 @@ class IndexSpace(Space):
                 rval = self.formatter.format(batch, sparse=space.sparse,
                                              mode='concatenate')
             else:
-                raise ValueError("Can't convert IndexSpace to"
-                                 "VectorSpace (%d labels to %d dimensions)"
-                                 % (self.dim, space.dim))
+                raise ValueError("Can't convert %s to %s"
+                                 % (str(self), str(space)))
             return rval
         else:
-            raise ValueError("Can't convert IndexSpace to %(space)s"
-                             % (space.__class__.__name__))
+            raise ValueError("Can't convert %s to %s"
+                             % (str(self), str(space)))
 
     @functools.wraps(Space._format_as)
     def _format_as(self, batch, space):

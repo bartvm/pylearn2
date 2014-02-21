@@ -487,8 +487,9 @@ class FiniteDatasetIterator(object):
             init_fn = self._convert[i]
             fn = init_fn
             # Compose the functions
-            needs_cast = not (np.dtype(config.floatX) ==
-                              self._raw_data[i].dtype)
+            # needs_cast = not (np.dtype(config.floatX) ==
+            # self._raw_data[i].dtype)
+            needs_cast = False
             if needs_cast:
                 if fn is None:
                     fn = lambda batch: numpy.cast[config.floatX](batch)
@@ -533,10 +534,18 @@ class FiniteDatasetIterator(object):
         next_index = self._subset_iterator.next()
         # TODO: handle fancy-index copies by allocating a buffer and
         # using numpy.take()
-
-        rval = tuple(
+        get = getattr(self._dataset, 'get', None)
+        if callable(get):
+            rval = tuple(
+                fn(data) if fn else data for data, fn in
+                safe_zip(self._dataset.get(next_index),
+                         self._convert)
+            )
+        else:
+            rval = tuple(
                 fn(data[next_index]) if fn else data[next_index]
-                for data, fn in safe_zip(self._raw_data, self._convert))
+                for data, fn in safe_zip(self._raw_data, self._convert)
+            )
         if not self._return_tuple and len(rval) == 1:
             rval, = rval
         return rval
