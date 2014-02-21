@@ -168,9 +168,12 @@ class NRCNNJM(dataset.Dataset):
         assert mmap_mode in [None, "r+", "r", "w+", "c"]
 
         npz_data = np.load(os.path.join(path, 'complete_%s.npz' % size_type), mmap_mode=mmap_mode)
+        source_max_labels, target_max_labels, targets_max_labels = \
+            np.max(npz_data["src_ctxt"]) + 1, np.max(npz_data["tgt_ctxt"]) + 1, np.max(npz_data["tgts"]) + 1
         source_ctxt = npz_data["src_ctxt"][start:stop]
         target_ctxt = npz_data["tgt_ctxt"][start:stop]
         targets = npz_data["tgts"][start:stop]
+        self._num_examples = len(targets)
 
         del npz_data
         self._num_target_words = num_target_words
@@ -182,11 +185,11 @@ class NRCNNJM(dataset.Dataset):
             self._y = targets.astype('int32')
 
             self._X_space = IndexSpace(dim=self._window_size,
-                                       max_labels=np.max(self._X) + 1)
+                                       max_labels=max(source_max_labels, target_max_labels))
             self.data_len = self._X.shape[0]
 
             if num_target_words < 1:
-                self._num_target_words = np.max(targets)
+                self._num_target_words = np.max(targets) + 1
 
             #self._y_space = VectorSpace(self._num_target_words + 1)
             self._y_space = IndexSpace(dim=1, max_labels=self._num_target_words)
@@ -200,12 +203,12 @@ class NRCNNJM(dataset.Dataset):
             self._X = self._raw_data
             self._y = np.atleast_2d(targets.astype('int32')).T
             self._source_ctxt_space = IndexSpace(dim=src_context_size,
-                                                 max_labels=np.max(self.source_ctxt) + 1)
+                                                 max_labels=source_max_labels)
             self._target_ctxt_space = IndexSpace(dim=target_context_size,
-                    max_labels=np.max(self.target_ctxt) + 1)
+                    max_labels=target_max_labels)
 
             self._y_space = IndexSpace(dim=target_context_size,
-                                       max_labels=np.max(self._y) + 1)
+                                       max_labels=targets_max_labels)
 
             self.data_len = self.source_ctxt.shape[0]
 
@@ -280,7 +283,8 @@ class NRCNNJM(dataset.Dataset):
             batch_size = getattr(self, '_iter_batch_size', None)
 
         if num_batches is None:
-            num_batches = getattr(self, '_iter_num_batches', None)
+            num_batches = self._num_examples // batch_size
+            # num_batches = getattr(self, '_iter_num_batches', None)
 
         if rng is None and mode.stochastic:
             rng = self.rng

@@ -1,7 +1,8 @@
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.corpus.NRCNNJM {
         which_set: 'train',
-        data_mode: 1
+        data_mode: 1,
+        stop: -100000
     },
     model: !obj:pylearn2.models.mlp.MLP {
         layers: [
@@ -54,7 +55,8 @@
         monitoring_dataset: {
             'valid' : !obj:pylearn2.datasets.corpus.NRCNNJM {
                 which_set: 'valid',
-                data_mode: 1
+                data_mode: 1,
+                start: -100000
             }
         },
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
