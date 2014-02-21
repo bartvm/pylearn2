@@ -258,7 +258,7 @@ class MLP(Layer):
     """
 
     def __init__(self, layers, batch_size=None, input_space=None,
-                 nvis=None, seed=None):
+                 nvis=None, seed=None, input_source='features'):
         """
         Parameters
         ----------
@@ -275,6 +275,8 @@ class MLP(Layer):
         input_space : Space object, optional
             A Space specifying the kind of input the MLP accepts. If None,
             input space is specified by nvis.
+        input_source : (nested) tuple of strings, optional
+            Structure must match that of input_space.
         """
 
         super(MLP, self).__init__()
@@ -307,6 +309,7 @@ class MLP(Layer):
             input_space = VectorSpace(nvis)
 
         self.input_space = input_space
+        self.input_source = input_source
 
         self._update_layer_input_spaces()
 
@@ -2941,8 +2944,14 @@ class CompositeLayer(Layer):
 
     @wraps(Layer.fprop)
     def fprop(self, state_below):
-
-        return tuple(layer.fprop(state_below) for layer in self.layers)
+        if isinstance(state_below, tuple):
+            assert len(state_below) == len(self.layers)
+            return tuple(
+                layer.fprop(layer_state)
+                for layer, layer_state in zip(self.layers, state_below)
+            )
+        else:
+            return tuple(layer.fprop(state_below) for layer in self.layers)
 
     @wraps(Layer.cost)
     def cost(self, Y, Y_hat):
