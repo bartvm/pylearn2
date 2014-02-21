@@ -1,6 +1,7 @@
 import os
-
+import collections
 from .general import is_iterable
+from pylearn2.space import CompositeSpace
 import theano
 # Delay import of pylearn2.config.yaml_parse and pylearn2.datasets.control
 # to avoid circular imports
@@ -542,3 +543,46 @@ def wraps(wrapped,
     """
     return partial(update_wrapper, wrapped=wrapped, assigned=assigned,
                    append=append,updated=updated)
+
+def flatten(iterable):
+    """
+    Flattens any kind of nested iterable and returns its elements one
+    by one in a DFS manner.
+    """
+    assert isinstance(iterable, (tuple, list, CompositeSpace)) and \
+        not isinstance(iterable, basestring)
+    for element in iterable:
+        if isinstance(element, (tuple, list, CompositeSpace)) and \
+                not isinstance(element, basestring):
+            for subelement in flatten(element):
+                yield subelement
+        else:
+            yield element
+
+def traverse_tree(fn, *trees):
+    """
+    Traverses through a tree and applies a function to the leaves. It
+    can also traverse a collection of trees simultaneously, where the
+    function receives all the leaves as inputs.
+    """
+    if all(isinstance(tree, (tuple. list, CompositeSpace)) and \
+            not isinstance(tree, basestring) for tree in trees):
+        # It's a branch
+        return tuple(traverse_tree(fn, *sub) for sub in zip(*trees))
+    else:
+        # It's a leaf
+        return fn(*trees)
+
+def assert_equal_tree_structure(*trees):
+    """
+    This function takes any number of nested iterables and checks whether they
+    have the same structure i.e. the same sizes and order
+    """
+    if all(isinstance(element, collections.Iterable) and
+           not isinstance(element, basestring) for element in trees):
+        assert all(len(tree) == len(trees[0]) for tree in trees)
+        for sub in zip(*trees):
+            assert_equal_tree_structure(*sub)
+    else:
+        assert not any(isinstance(element, collections.Iterable) and
+           not isinstance(element, basestring) for element in trees)

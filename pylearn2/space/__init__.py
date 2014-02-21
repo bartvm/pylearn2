@@ -1028,6 +1028,12 @@ class CompositeSpace(Space):
                                 (i, str(component), str(type(component))))
         self.components = list(components)
 
+    def __iter__(self):
+        return iter(self.components)
+
+    def __len__(self):
+        return len(self.components)
+
     def __eq__(self, other):
         """
         .. todo::

@@ -23,7 +23,9 @@ np = numpy
 from theano import config
 
 from pylearn2.space import CompositeSpace
-from pylearn2.utils import safe_zip
+from pylearn2.utils import (
+    safe_zip, flatten, assert_equal_tree_structure, traverse_tree
+)
 from pylearn2.utils.data_specs import is_flat_specs
 
 
@@ -432,91 +434,70 @@ class FiniteDatasetIterator(object):
 
             WRITEME
         """
-
         self._data_specs = data_specs
         self._dataset = dataset
         self._subset_iterator = subset_iterator
         self._return_tuple = return_tuple
 
-        # Keep only the needed sources in self._raw_data.
-        # Remember what source they correspond to in self._source
-        assert is_flat_specs(data_specs)
-
         dataset_space, dataset_source = self._dataset.get_data_specs()
-        assert is_flat_specs((dataset_space, dataset_source))
 
-        # the dataset's data spec is either a single (space, source) pair,
-        # or a pair of (non-nested CompositeSpace, non-nested tuple).
-        # We could build a mapping and call flatten(..., return_tuple=True)
-        # but simply putting spaces, sources and data in tuples is simpler.
         if not isinstance(dataset_source, tuple):
             dataset_source = (dataset_source,)
-
-        if not isinstance(dataset_space, CompositeSpace):
+        if not isinstance(dataset_space, tuple):
             dataset_sub_spaces = (dataset_space,)
-        else:
-            dataset_sub_spaces = dataset_space.components
-        assert len(dataset_source) == len(dataset_sub_spaces)
-
-        all_data = self._dataset.get_data()
-        if not isinstance(all_data, tuple):
-            all_data = (all_data,)
+        assert_equal_tree_structure(dataset_space, dataset_source)
 
         space, source = data_specs
         if not isinstance(source, tuple):
             source = (source,)
-        if not isinstance(space, CompositeSpace):
-            sub_spaces = (space,)
-        else:
-            sub_spaces = space.components
-        assert len(source) == len(sub_spaces)
+        if not isinstance(space, tuple):
+            space = (space,)
+        assert_equal_tree_structure(space, source)
 
-        self._raw_data = tuple(all_data[dataset_source.index(s)]
-                               for s in source)
+        all_data = self._dataset.get_data()
+        if not isinstance(all_data, tuple):
+            all_data = (all_data,)
+        assert_equal_tree_structure(all_data, dataset_source)
+
+        # Traverse through source, and return the data from all_data
+        # in the same structure
+        all_data = tuple(flatten(all_data))
+        dataset_source = tuple(flatten(dataset_source))
+        dataset_space = tuple(flatten(dataset_space))
+        self._raw_data, = traverse_tree(
+            lambda source: all_data[dataset_source.index(source)],
+            source
+        )
+        dataset_space, = traverse_tree(
+            lambda source: dataset_space[dataset_source.index(source)],
+            source
+        )
+        del all_data
+
+        # What is this for?
         self._source = source
 
         if convert is None:
-            self._convert = [None for s in source]
+            self._convert = traverse_tree(lambda leaf: None, source)
         else:
-            assert len(convert) == len(source)
-            self._convert = convert
+            assert_equal_tree_structure(convert, source)
 
-        for i, (so, sp) in enumerate(safe_zip(source, sub_spaces)):
-            idx = dataset_source.index(so)
-            dspace = dataset_sub_spaces[idx]
-
-            init_fn = self._convert[i]
-            fn = init_fn
-            # Compose the functions
-            # needs_cast = not (np.dtype(config.floatX) ==
-            # self._raw_data[i].dtype)
-            needs_cast = False
-            if needs_cast:
-                if fn is None:
-                    fn = lambda batch: numpy.cast[config.floatX](batch)
+        def get_convert_fn(dataset_space, space, convert):
+            if dataset_space != space:
+                if convert is not None:
+                    format_fn = \
+                        lambda batch: dataset_space.np_format_as(
+                            convert(batch),
+                            space
+                        )
                 else:
-                    fn = (lambda batch, fn_=fn:
-                          numpy.cast[config.floatX](fn_(batch)))
-
-            # If there is an init_fn, it is supposed to take
-            # care of the formatting, and it should be an error
-            # if it does not. If there was no init_fn, then
-            # the iterator will try to format using the generic
-            # space-formatting functions.
-            needs_format = not init_fn and not sp == dspace
-            if needs_format:
-                # "dspace" and "sp" have to be passed as parameters
-                # to lambda, in order to capture their current value,
-                # otherwise they would change in the next iteration
-                # of the loop.
-                if fn is None:
-                    fn = (lambda batch, dspace=dspace, sp=sp:
-                          dspace.np_format_as(batch, sp))
-                else:
-                    fn = (lambda batch, dspace=dspace, sp=sp, fn_=fn:
-                          dspace.np_format_as(fn_(batch), sp))
-
-            self._convert[i] = fn
+                    format_fn = \
+                        lambda batch: dataset_space.np_format_as(batch, space)
+                return format_fn
+            else:
+                return None
+        self._convert = traverse_tree(get_convert_fn, dataset_space,
+                                      space, convert)
 
     def __iter__(self):
         """
@@ -547,6 +528,8 @@ class FiniteDatasetIterator(object):
                 fn(data[next_index]) if fn else data[next_index]
                 for data, fn in safe_zip(self._raw_data, self._convert)
             )
+        if rval[0] is None:
+            pdb.set_trace()
         if not self._return_tuple and len(rval) == 1:
             rval, = rval
         return rval

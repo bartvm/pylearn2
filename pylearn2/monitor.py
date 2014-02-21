@@ -13,6 +13,7 @@ from theano.compat.python2x import OrderedDict
 import copy
 import time
 import warnings
+import pdb
 
 from theano.printing import var_descriptor
 import theano.sparse
@@ -236,7 +237,6 @@ class Monitor(object):
                 X = ()
                 self.run_prereqs(X, d)
                 a(*X)
-
             else:
                 actual_ne = 0
                 for X in myiterator:
