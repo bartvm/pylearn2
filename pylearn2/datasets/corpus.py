@@ -207,7 +207,7 @@ class NRCNNJM(dataset.Dataset):
             self._target_ctxt_space = IndexSpace(dim=target_context_size,
                     max_labels=target_max_labels)
 
-            self._y_space = IndexSpace(dim=target_context_size,
+            self._y_space = IndexSpace(dim=1,
                                        max_labels=targets_max_labels)
 
             self.data_len = self.source_ctxt.shape[0]

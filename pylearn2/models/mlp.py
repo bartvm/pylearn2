@@ -919,7 +919,7 @@ class Softmax(Layer):
                  istdev=None,
                  sparse_init=None, W_lr_scale=None,
                  b_lr_scale=None, max_row_norm=None,
-                 no_affine=False,
+                 no_affine=False, target_labels=False,
                  max_col_norm=None, init_bias_target_marginals=None):
         """
         .. todo::
@@ -928,6 +928,11 @@ class Softmax(Layer):
         """
 
         super(Softmax, self).__init__()
+
+        if target_labels:
+            self.output_space = IndexSpace(dim=1, max_labels=n_classes)
+        else:
+            self.output_space = VectorSpace(n_classes)
 
         if isinstance(W_lr_scale, str):
             W_lr_scale = float(W_lr_scale)
@@ -938,7 +943,6 @@ class Softmax(Layer):
 
         assert isinstance(n_classes, py_integer_types)
 
-        self.output_space = VectorSpace(n_classes)
         if not no_affine:
             self.b = sharedX(np.zeros((n_classes,)), name='softmax_b')
             if init_bias_target_marginals:
@@ -1133,7 +1137,6 @@ class Softmax(Layer):
 
     @wraps(Layer.cost)
     def cost(self, Y, Y_hat):
-
         assert hasattr(Y_hat, 'owner')
         owner = Y_hat.owner
         assert owner is not None
@@ -1146,16 +1149,17 @@ class Softmax(Layer):
         assert isinstance(op, T.nnet.Softmax)
         z, = owner.inputs
         assert z.ndim == 2
-
         z = z - z.max(axis=1).dimshuffle(0, 'x')
-        log_prob = z - T.log(T.exp(z).sum(axis=1).dimshuffle(0, 'x'))
-        # we use sum and not mean because this is really one variable per row
-        log_prob_of = (Y * log_prob).sum(axis=1)
-        assert log_prob_of.ndim == 1
-
-        rval = log_prob_of.mean()
-
-        return - rval
+        if isinstance(self.output_space, IndexSpace):
+            log_prob = z[T.arange(z.shape[0]), Y.flatten()] - T.log(T.exp(z).sum(axis=1))
+            rval = log_prob.mean()
+        else:
+            log_prob = z - T.log(T.exp(z).sum(axis=1).dimshuffle(0, 'x'))
+            # we use sum and not mean because this is really one variable per row
+            log_prob_of = (Y * log_prob).sum(axis=1)
+            assert log_prob_of.ndim == 1
+            rval = log_prob_of.mean()
+        return -rval
 
     @wraps(Layer.cost_matrix)
     def cost_matrix(self, Y, Y_hat):
@@ -1174,9 +1178,14 @@ class Softmax(Layer):
         assert z.ndim == 2
 
         z = z - z.max(axis=1).dimshuffle(0, 'x')
-        log_prob = z - T.log(T.exp(z).sum(axis=1).dimshuffle(0, 'x'))
-        # we use sum and not mean because this is really one variable per row
-        log_prob_of = (Y * log_prob)
+        if isinstance(self.output_space, IndexSpace):
+            assert False
+            # Not implemented
+            log_prob = z[T.arange(z.shape[0]), Y.flatten()] - T.log(T.exp(z).sum(axis=1))
+        else:
+            log_prob = z - T.log(T.exp(z).sum(axis=1).dimshuffle(0, 'x'))
+            # we use sum and not mean because this is really one variable per row
+            log_prob_of = (Y * log_prob)
 
         return -log_prob_of
 
