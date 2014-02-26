@@ -451,14 +451,25 @@ class Europarl(Corpus):
         path = "${PYLEARN2_DATA_PATH}/europarl-v3b/"
         path = serial.preprocess(path)
         if which_set == 'train':
-            self._raw_data = np.load(path + 'train.npy')
+            self._raw_data = np.load(path + 'europarl.npy')
         elif which_set == 'valid':
-            self._raw_data = np.load(path + 'valid.npy')
+            self._raw_data = np.load(path + 'devtest2006.npy')
         elif which_set == 'test':
-            self._raw_data = np.load(path + 'valid.npy')
+            self._raw_data = np.load(path + 'devtest2006.npy')
         else:
             raise ValueError("Dataset must be one of train or valid")
         self._raw_data[self._raw_data >= 10000] = 0
+        self._cum_examples = np.cumsum([len(sentence) for sentence in self._raw_data])
+        self._cum_examples = np.insert(self._cum_examples, 0, 0)
+        self._num_examples = self._cum_examples[-1]
         super(Europarl, self).__init__(window_size, batch_size=batch_size,
                 num_input_words=num_input_words, num_target_words=num_target_words,
                 shuffle=shuffle, start=start, stop=stop)
+
+    def get(self, indices):
+        if isinstance(indices, slice):
+            indices = np.arange(indices.start, indices.stop, indices.step)
+        sentence_indices = np.array([np.argmax(index < self._cum_examples) - 1 for index in indices])
+        word_indices = indices - self._cum_examples[sentence_indices]
+
+        return (X_batch, y_batch)

@@ -1151,7 +1151,7 @@ class Softmax(Layer):
         assert z.ndim == 2
         z = z - z.max(axis=1).dimshuffle(0, 'x')
         if isinstance(self.output_space, IndexSpace):
-            log_prob = z[T.arange(z.shape[0]), Y.flatten()] - T.log(T.exp(z).sum(axis=1))
+            log_prob = z.flatten()[T.arange(z.shape[0]) * z.shape[1] + Y.flatten()] - T.log(T.exp(z).sum(axis=1))
             rval = log_prob.mean()
         else:
             log_prob = z - T.log(T.exp(z).sum(axis=1).dimshuffle(0, 'x'))
