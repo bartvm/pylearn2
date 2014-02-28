@@ -77,8 +77,13 @@ class MatrixMul(LinearTransform):
         x : theano.tensor, int dtype
             Batch where each row contains integers
         """
-        shape = (x.shape[0], x.shape[1] * self._W.shape[1])
-        return self._W[x.flatten()].reshape(shape)
+        if x.ndim == 2:
+            shape = (x.shape[0], x.shape[1] * self._W.shape[1])
+            return self._W[x.flatten()].reshape(shape)
+        elif x.ndim == 1:
+            return self._W[x].reshape((x.shape[0] * self._W.shape[1],))
+        else:
+            assert ValueError("project needs 1- or 2-dimensional input")
 
 def make_local_rfs(dataset, nhid, rf_shape, stride, irange = .05, draw_patches = False, rng = None):
     """

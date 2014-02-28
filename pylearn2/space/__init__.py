@@ -498,7 +498,7 @@ class IndexSpace(Space):
                             "got " + str(type(batch)))
         if not isinstance(batch.type, (theano.tensor.TensorType,
                                        CudaNdarrayType)):
-            raise TypeError("VectorSpace batch should be TensorType or "
+            raise TypeError("IndexSpace batch should be TensorType or "
                             "CudaNdarrayType, got "+str(batch.type))
         if batch.ndim != 2:
             raise ValueError('IndexSpace batches must be 2D, got %d '
@@ -691,9 +691,9 @@ class VectorSpace(Space):
         if self.sparse and not isinstance(batch.type,
                                           theano.sparse.SparseType):
             raise TypeError()
-        if batch.ndim != 2:
-            raise ValueError('VectorSpace batches must be 2D, got %d '
-                             'dimensions' % batch.ndim)
+        # if batch.ndim != 2:
+        #     raise ValueError('VectorSpace batches must be 2D, got %d '
+        #                      'dimensions' % batch.ndim)
         for val in get_debug_values(batch):
             self.np_validate(val)
 
@@ -715,10 +715,10 @@ class VectorSpace(Space):
                 raise TypeError("The value of a sparse VectorSpace batch "
                                 "should be a sparse scipy matrix, got %s of "
                                 "type %s." % (batch, type(batch)))
-        if batch.ndim != 2:
-            raise ValueError("The value of a VectorSpace batch must be "
-                             "2D, got %d dimensions for %s." % (batch.ndim,
-                                                                batch))
+        # if batch.ndim != 2:
+        #     raise ValueError("The value of a VectorSpace batch must be "
+        #                      "2D, got %d dimensions for %s." % (batch.ndim,
+        #                                                         batch))
         if batch.shape[1] != self.dim:
             raise ValueError("The width of a VectorSpace batch must match "
                              "with the space's dimension, but batch has shape "
