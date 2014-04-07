@@ -96,6 +96,7 @@ class MNIST(dense_design_matrix.DenseDesignMatrix):
                 y = one_hot
                 max_labels = None
             else:
+                y = y[:, None]
                 max_labels = 10
 
             m, r, c = topo_view.shape
