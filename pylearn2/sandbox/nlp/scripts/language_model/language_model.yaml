@@ -1,6 +1,7 @@
 !obj:pylearn2.train.Train {
     dataset: !obj:pylearn2.sandbox.nlp.datasets.pytables_file.PytablesFile {
-        name: 'combined_train',
+        filename: 'joint_paper_hs/combined_train.hdf',
+        node: '/combined_train',
         vocab_size: 15000
     },
     model: !obj:pylearn2.models.mlp.MLP {
@@ -33,26 +34,27 @@
         learning_rate: .1,
         monitoring_dataset: {
             'valid' : !obj:pylearn2.sandbox.nlp.datasets.pytables_file.PytablesFile {
-                name: 'combined_valid',
+                filename: 'joint_paper_hs/combined_valid.hdf',
+                node: '/combined_valid',
                 vocab_size: 15000
             }
         },
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
-            channel_name: 'dataset_softmax_nll',
+            channel_name: 'valid_softmax_nll',
             prop_decrease: 0.,
             N: 5
         },
     },
     extensions: [
       !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
-        channel_name: 'dataset_softmax_nll',
+        channel_name: 'valid_softmax_nll',
         save_path: 'holger_best.pkl'
       },
       !obj:pylearn2.training_algorithms.sgd.MonitorBasedLRAdjuster {
         high_trigger: 1.,
         shrink_amt: .5,
         low_trigger: 1.,
-        channel_name: 'dataset_softmax_nll'
+        channel_name: 'valid_softmax_nll'
       }
     ]
 }
