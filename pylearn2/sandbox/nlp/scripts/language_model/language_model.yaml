@@ -9,11 +9,11 @@
                 layer_name: 'projection',
                 dim: 256,
                 irange: 0.01
-            }, !obj:pylearn2.models.mlp.RectiefiedLinear {
+            }, !obj:pylearn2.models.mlp.RectifiedLinear {
                 layer_name: 'rectified_linear_0',
                 dim: 768,
                 irange: 0.01
-            }, !obj:pylearn2.models.mlp.RectiefiedLinear {
+            }, !obj:pylearn2.models.mlp.RectifiedLinear {
                 layer_name: 'rectified_linear_1',
                 dim: 512,
                 irange: 0.01
