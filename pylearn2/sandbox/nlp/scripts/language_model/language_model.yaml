@@ -1,42 +1,58 @@
 !obj:pylearn2.train.Train {
-    dataset: &train !obj:pylearn2.sandbox.nlp.datasets.penntree.PennTreebank {
-        which_set: 'train',
-        ngram_size: &ngram_size 7
+    dataset: !obj:pylearn2.sandbox.nlp.datasets.pytables_file.PytablesFile {
+        name: 'combined_train',
+        vocab_size: 15000
     },
     model: !obj:pylearn2.models.mlp.MLP {
         layers: [
             !obj:pylearn2.sandbox.nlp.models.mlp.ProjectionLayer {
                 layer_name: 'projection',
-                dim: 128,
-                irange: 0.01
-            }, !obj:pylearn2.models.mlp.Tanh {
-                layer_name: 'tanh',
                 dim: 256,
                 irange: 0.01
+            }, !obj:pylearn2.models.mlp.RectiefiedLinear {
+                layer_name: 'rectified_linear_0',
+                dim: 768,
+                irange: 0.01
+            }, !obj:pylearn2.models.mlp.RectiefiedLinear {
+                layer_name: 'rectified_linear_1',
+                dim: 512,
+                irange: 0.01
             }, !obj:pylearn2.models.mlp.Softmax {
-                n_classes: 10000,
+                n_classes: 15000,
                 layer_name: 'softmax',
                 irange: 0.01
             }
         ],
         input_space: !obj:pylearn2.space.IndexSpace {
             dim: 6,
-            max_labels: 10000
+            max_labels: 15000
         }
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 256,
         learning_rate: .1,
         monitoring_dataset: {
-            'valid' : !obj:pylearn2.sandbox.nlp.datasets.penntree.PennTreebank {
-                which_set: 'valid',
-                ngram_size: *ngram_size
+            'valid' : !obj:pylearn2.sandbox.nlp.datasets.pytables_file.PytablesFile {
+                name: 'combined_valid',
+                vocab_size: 15000
             }
         },
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
-            channel_name: 'valid_softmax_nll',
+            channel_name: 'dataset_softmax_nll',
             prop_decrease: 0.,
-            N: 10
+            N: 5
         },
     },
+    extensions: [
+      !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+        channel_name: 'dataset_softmax_nll',
+        save_path: 'holger_best.pkl'
+      },
+      !obj:pylearn2.training_algorithms.sgd.MonitorBasedLRAdjuster {
+        high_trigger: 1.,
+        shrink_amt: .5,
+        low_trigger: 1.,
+        channel_name: 'dataset_softmax_nll'
+      }
+    ]
 }
