@@ -72,9 +72,15 @@ class ProjectionLayer(Layer):
         if isinstance(space, IndexSpace):
             self.input_dim = space.dim
             self.input_space = space
+            self.output_space = VectorSpace(self.dim * self.input_dim)
+        elif isinstance(space, VectorSpace):
+            assert space.sparse is True, ("ProjectionLayer needs a sparse "
+                                          "VectorSpace as input")
+            self.input_space = space
+            self.output_space = VectorSpace(self.dim)
         else:
-            raise ValueError("ProjectionLayer needs an IndexSpace as input")
-        self.output_space = VectorSpace(self.dim * self.input_dim)
+            raise ValueError("ProjectionLayer needs an IndexSpace or sparse "
+                             "VectorSpace as input")
         rng = self.mlp.rng
         if self._irange is not None:
             W = rng.uniform(-self._irange,
@@ -93,7 +99,10 @@ class ProjectionLayer(Layer):
 
     @wraps(Layer.fprop)
     def fprop(self, state_below):
-        z = self.transformer.project(state_below)
+        if isinstance(self.input_space, IndexSpace):
+            z = self.transformer.project(state_below)
+        else:
+            z = self.transformer.sparse_lmul(state_below)
         return z
 
     @wraps(Layer.get_params)

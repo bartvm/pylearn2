@@ -359,7 +359,7 @@ class MLP(Layer):
     """
 
     def __init__(self, layers, batch_size=None, input_space=None,
-                 nvis=None, seed=None):
+                 input_source='features', nvis=None, seed=None):
         super(MLP, self).__init__()
 
         if seed is None:
@@ -390,6 +390,7 @@ class MLP(Layer):
             input_space = VectorSpace(nvis)
 
         self.input_space = input_space
+        self.input_source = input_source
 
         self._update_layer_input_spaces()
 
@@ -399,6 +400,10 @@ class MLP(Layer):
             if x is None:
                 return None
             return 1. / x
+
+    @wraps(Model.get_input_source)
+    def get_input_source(self):
+        return self.input_source
 
     def setup_rng(self):
         """

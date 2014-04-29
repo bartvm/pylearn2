@@ -8,15 +8,15 @@
         layers: [
             !obj:pylearn2.sandbox.nlp.models.mlp.ProjectionLayer {
                 layer_name: 'projection',
-                dim: 256,
+                dim: 512,
                 irange: 0.01
             }, !obj:pylearn2.models.mlp.RectifiedLinear {
                 layer_name: 'rectified_linear_0',
-                dim: 768,
+                dim: 1536,
                 irange: 0.01
             }, !obj:pylearn2.models.mlp.RectifiedLinear {
                 layer_name: 'rectified_linear_1',
-                dim: 512,
+                dim: 1024,
                 irange: 0.01
             }, !obj:pylearn2.models.mlp.Softmax {
                 n_classes: 15000,
@@ -31,6 +31,9 @@
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 256,
+        monitoring_batch_size: 256,
+        batches_per_iter: 100000,
+        monitoring_batches: 4000,
         learning_rate: .1,
         monitoring_dataset: {
             'valid' : !obj:pylearn2.sandbox.nlp.datasets.pytables_file.PytablesFile {
@@ -44,6 +47,14 @@
             prop_decrease: 0.,
             N: 5
         },
+        cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
+            input_include_probs: {
+              'projection': 1
+            },
+            input_scales: {
+              'projection': 1
+            }
+        }
     },
     extensions: [
       !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {

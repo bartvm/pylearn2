@@ -4,6 +4,7 @@ Sandbox projection operator for natural language processing (NLP)
                  "sandbox/nlp/scripts/language_model/language_model.yaml")
 """
 from pylearn2.linear import matrixmul
+from theano import sparse
 
 
 class MatrixMul(matrixmul.MatrixMul):
@@ -35,3 +36,16 @@ class MatrixMul(matrixmul.MatrixMul):
             return self._W[x].reshape((x.shape[0] * self._W.shape[1],))
         else:
             assert ValueError("project needs 1- or 2-dimensional input")
+
+    def sparse_lmul(self, x):
+        """
+        .. todo::
+
+            WRITEME
+
+        Parameters
+        ----------
+        x : ndarray, 1d or 2d
+            The input data
+        """
+        return sparse.basic.structured_dot(x, self._W)
