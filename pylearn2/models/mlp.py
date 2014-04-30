@@ -405,7 +405,8 @@ class MLP(Layer):
 
     @wraps(Model.get_input_source)
     def get_input_source(self):
-        return self.input_source
+        return 'features'
+        # return self.input_source
 
     def setup_rng(self):
         """

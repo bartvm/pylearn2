@@ -4,31 +4,7 @@
         node: '/combined_train',
         vocab_size: 15000
     },
-    model: !obj:pylearn2.models.mlp.MLP {
-        layers: [
-            !obj:pylearn2.sandbox.nlp.models.mlp.ProjectionLayer {
-                layer_name: 'projection',
-                dim: 512,
-                irange: 0.01
-            }, !obj:pylearn2.models.mlp.RectifiedLinear {
-                layer_name: 'rectified_linear_0',
-                dim: 1536,
-                irange: 0.01
-            }, !obj:pylearn2.models.mlp.RectifiedLinear {
-                layer_name: 'rectified_linear_1',
-                dim: 1024,
-                irange: 0.01
-            }, !obj:pylearn2.models.mlp.Softmax {
-                n_classes: 15000,
-                layer_name: 'softmax',
-                irange: 0.01
-            }
-        ],
-        input_space: !obj:pylearn2.space.IndexSpace {
-            dim: 6,
-            max_labels: 15000
-        }
-    },
+    model: !pkl: 'holger_best.pkl',
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 256,
         monitoring_batch_size: 256,
