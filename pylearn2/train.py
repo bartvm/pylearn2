@@ -153,7 +153,7 @@ class Train(object):
                 if not continue_learning:
                     break
         else:
-            self.algorithm.setup(model=pylearn2.monitor.push_monitor(self.model, 'old_monitor'), dataset=self.dataset)
+            self.algorithm.setup(model=self.model, dataset=self.dataset)
             self.setup_extensions()
             # Model.censor_updates is used by the training algorithm to
             # enforce constraints after each step of learning. Here we

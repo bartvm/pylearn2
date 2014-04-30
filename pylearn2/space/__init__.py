@@ -1036,9 +1036,6 @@ class VectorSpace(SimplyTypedSpace):
         dtype = self._clean_dtype_arg(dtype)
 
         if self.sparse:
-            if batch_size is not None:
-                raise NotImplementedError("batch_size not implemented "
-                                          "for sparse case")
             rval = theano.sparse.csr_matrix(name=name, dtype=dtype)
         else:
             if batch_size == 1:

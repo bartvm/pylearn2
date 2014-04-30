@@ -82,12 +82,20 @@ class ProjectionLayer(Layer):
             raise ValueError("ProjectionLayer needs an IndexSpace or sparse "
                              "VectorSpace as input")
         rng = self.mlp.rng
-        if self._irange is not None:
-            W = rng.uniform(-self._irange,
-                            self._irange,
-                            (space.max_labels, self.dim))
+        if isinstance(space, IndexSpace):
+            if self._irange is not None:
+                W = rng.uniform(-self._irange,
+                                self._irange,
+                                (space.max_labels, self.dim))
+            else:
+                W = rng.randn(space.max_labels, self.dim) * self._istdev
         else:
-            W = rng.randn(space.max_labels, self.dim) * self._istdev
+            if self._irange is not None:
+                W = rng.uniform(-self._irange,
+                                self._irange,
+                                (space.dim, self.dim))
+            else:
+                W = rng.randn(space.dim, self.dim) * self._istdev
 
         W = sharedX(W)
         W.name = self.layer_name + '_W'

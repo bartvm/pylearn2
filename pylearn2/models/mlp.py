@@ -405,8 +405,8 @@ class MLP(Layer):
 
     @wraps(Model.get_input_source)
     def get_input_source(self):
-        return 'features'
-        # return self.input_source
+        # return 'features'
+        return self.input_source
 
     def setup_rng(self):
         """
@@ -778,6 +778,7 @@ class MLP(Layer):
 
             WRITEME
         """
+        return True
         if any(layer not in self.layer_names for layer in layers):
             unknown_names = [layer for layer in layers
                              if layer not in self.layer_names]
@@ -3899,6 +3900,7 @@ class FlattenerLayer(Layer):
     def set_input_space(self, space):
 
         self.raw_layer.set_input_space(space)
+        self.input_space = space
         total_dim = self.raw_layer.get_output_space().get_total_dimension()
         self.output_space = VectorSpace(total_dim)
 
