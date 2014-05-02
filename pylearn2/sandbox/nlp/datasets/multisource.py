@@ -78,8 +78,8 @@ class Multisource(Dataset):
                                      data_specs=data_specs,
                                      return_tuple=return_tuple)
 
-    def get_data_specs():
-        return ((CompositeSpace(IndexSpace(dim=6, max_labels=15000), VectorSpace(dim=15000, sparse=True)), IndexSpace(dim=1, max_labels=15000)), (('ngrams', 'source_sentence'), 'targets'))
+    def get_data_specs(self):
+        return (CompositeSpace([IndexSpace(dim=6, max_labels=15000), VectorSpace(dim=15000, sparse=True), IndexSpace(dim=1, max_labels=15000)]), ('ngrams', 'source_sentence', 'targets'))
 
     def get(self, sources, indices):
         rval = []

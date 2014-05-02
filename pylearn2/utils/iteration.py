@@ -724,10 +724,10 @@ class FiniteDatasetIterator(object):
 
         # Keep only the needed sources in self._raw_data.
         # Remember what source they correspond to in self._source
-        assert is_flat_specs(data_specs)
+        # assert is_flat_specs(data_specs)
 
         dataset_space, dataset_source = self._dataset.get_data_specs()
-        assert is_flat_specs((dataset_space, dataset_source))
+        # assert is_flat_specs((dataset_space, dataset_source))
 
         # the dataset's data spec is either a single (space, source) pair,
         # or a pair of (non-nested CompositeSpace, non-nested tuple).
