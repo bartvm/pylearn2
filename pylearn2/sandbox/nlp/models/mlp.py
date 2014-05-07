@@ -1,13 +1,16 @@
 """
 Sandbox multilayer perceptron layers for natural language processing (NLP)
 """
+import numpy as np
 import theano.tensor as T
 from theano import config
 
+from pylearn2.expr.nnet import pseudoinverse_softmax_numpy
 from pylearn2.models import mlp
 from pylearn2.models.mlp import Layer
 from pylearn2.space import IndexSpace
 from pylearn2.space import VectorSpace
+from pylearn2.utils import py_integer_types
 from pylearn2.utils import sharedX
 from pylearn2.utils import wraps
 from pylearn2.sandbox.nlp.linear.matrixmul import MatrixMul
@@ -19,6 +22,29 @@ class Softmax(mlp.Softmax):
     An extension of the MLP's softmax layer which monitors
     the perplexity
     """
+    def __init__(self, n_classes, layer_name, irange=None,
+                 istdev=None,
+                 sparse_init=None, W_lr_scale=None,
+                 b_lr_scale=None, max_row_norm=None,
+                 no_affine=False,
+                 max_col_norm=None, init_bias_target_marginals=None,
+                 single_target=True):
+
+        super(Softmax, self).__init__(
+            n_classes, layer_name, irange, istdev,
+            sparse_init, W_lr_scale, b_lr_scale,
+            max_row_norm, no_affine, max_col_norm,
+            init_bias_target_marginals
+        )
+        if single_target:
+            self.output_space = IndexSpace(max_labels=n_classes, dim=1)
+
+    @wraps(Layer.cost)
+    def cost(self, Y, Y_hat):
+        if isinstance(self.output_space, IndexSpace):
+            Y = self.output_space.format_as(Y, VectorSpace(dim=self.n_classes))
+        return super(Softmax, self).cost(Y, Y_hat)
+
     @wraps(Layer.get_monitoring_channels_from_state)
     def get_monitoring_channels_from_state(self, state, target=None):
 
