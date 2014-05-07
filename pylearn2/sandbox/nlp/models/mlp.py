@@ -149,11 +149,11 @@ class Softmax(mlp.Softmax):
             if self.output_space.dim == 1:
                 # This prevents fancy indexing, which would require
                 # GPU -> Host transfers
-                # log_prob_of = \
-                #     log_prob.flatten()[Y.flatten() +
-                #                        T.arange(log_prob.shape[0]) *
-                #                        self.output_space.max_labels]
-                log_prob_of = log_prob[T.arange(log_prob.shape[0]), Y.flatten()]
+                log_prob_of = \
+                    log_prob.flatten()[Y.flatten() +
+                                       T.arange(log_prob.shape[0]) *
+                                       self.output_space.max_labels]
+                # log_prob_of = log_prob[T.arange(log_prob.shape[0]), Y.flatten()]
             else:
                 log_prob_of = log_prob[T.arange(log_prob.shape[0]),
                                        Y.T].sum(axis=0)
