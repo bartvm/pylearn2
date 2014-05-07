@@ -19,9 +19,10 @@
                 dim: 256,
                 irange: 0.01
             }, !obj:pylearn2.sandbox.nlp.models.mlp.Softmax {
+                irange: 0.01,
                 n_classes: 10000,
                 layer_name: 'softmax',
-                irange: 0.01
+                num_target_classes: 1
             }
         ],
         input_space: !obj:pylearn2.space.IndexSpace {
