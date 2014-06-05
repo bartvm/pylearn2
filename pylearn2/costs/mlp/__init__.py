@@ -39,6 +39,16 @@ class Default(DefaultDataSpecsMixin, Cost):
         return model.cost_from_X(data)
 
 
+class SquaredError(Default):
+    supervised = True
+
+    def expr(self, model, data):
+        space, sources = self.get_data_specs(model)
+        space.validate(data)
+        X, y = data
+        return ((model.fprop(X) - y) ** 2).sum(axis=1).mean()
+
+
 class WeightDecay(NullDataSpecsMixin, Cost):
     """
     coeff * sum(sqr(weights))

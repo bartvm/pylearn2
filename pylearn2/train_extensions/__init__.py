@@ -8,7 +8,9 @@ __email__ = "goodfeli@iro"
 
 import functools
 import logging
+
 import numpy as np
+from theano import function
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,36 @@ class TrainExtension(object):
             The object representing the training algorithm being
             used to train the model.
         """
+
+
+class BLEU(TrainExtension):
+    def setup(self, model, dataset, algorithm):
+        X = model.get_input_space().make_theano_batch()
+        self.score_func = function([X], model.fprop(X))
+        print "MERT BLEU: " + str(100 * self.score(dataset,
+                                                   dataset.mapping[:-1]))
+        best_indices = self.get_best(dataset)
+        print "BLEU: " + str(100 * self.score(dataset, best_indices))
+        dataset.rescore(best_indices)
+
+    def score(self, dataset, indices):
+        stats = np.sum(dataset.bleu_stats[indices], axis=0)
+        return dataset.bleu(stats)
+
+    def get_best(self, dataset):
+        indices = []
+        for i in range(dataset.num_sentences):
+            y = self.score_func(
+                dataset.X[dataset.mapping[i]:dataset.mapping[i + 1]]
+            )
+            indices.append(np.argmax(y.flatten()) + dataset.mapping[i])
+        return indices
+
+    def on_monitor(self, model, dataset, algorithm):
+        best_indices = self.get_best(dataset)
+        print "         BLEU: " + str(100 * self.score(dataset, best_indices))
+        dataset.rescore(best_indices)
+
 
 class SharedSetter(TrainExtension):
     """
