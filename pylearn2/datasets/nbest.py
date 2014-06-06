@@ -8,6 +8,7 @@ from sklearn.decomposition import PCA
 import theano
 
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
+from pylearn2.datasets.preprocessing import ZCA
 
 
 log = logging.getLogger(__name__)
@@ -23,11 +24,17 @@ class NBest(DenseDesignMatrix):
         Name of the nbest list in Moses format
     reference : filename
         The reference translation
+    sphere : bool
+        If True, spheres the data by subtracting the mean and
+        dividing by the stdev
+    zca : bool
+        If True, performs ZCA on the data
     pca : int
         If > 0 then perform whitened PCA and retain
         this number of components
     """
-    def __init__(self, nbest_file=None, reference_file=None, pca=0):
+    def __init__(self, nbest_file=None, reference_file=None,
+                 sphere=False, zca=False, pca=0):
         self.scored = False
         if nbest_file is None or reference_file is None:
             raise ValueError
@@ -68,6 +75,13 @@ class NBest(DenseDesignMatrix):
         assert sentence_index == self.num_sentences - 1
         self.mapping = np.cumsum(self.mapping)
         self.X = np.asarray(X, dtype=theano.config.floatX)
+        if sphere:
+            self.X -= self.X.mean(axis=0)
+            self.X /= self.X.std(axis=0)
+        if zca:
+            zca = ZCA(filter_bias=0)
+            zca.fit(self.X)
+            self.X = zca.apply(self.X)
         if pca:
             pca = PCA(n_components=pca, whiten=True)
             pca.fit(self.X)
