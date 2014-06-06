@@ -21,9 +21,11 @@ class NBest(DenseDesignMatrix):
         Name of the nbest list in Moses format
     reference : filename
         The reference translation
+    pca : int
+        If > 0 then perform whitened PCA and retain
+        this number of components
     """
-    def __init__(self, nbest_file=None, reference_file=None,
-                 word_normalize=False, normalize=False, center=False):
+    def __init__(self, nbest_file=None, reference_file=None, pca=0):
         self.scored = False
         if nbest_file is None or reference_file is None:
             raise ValueError
@@ -64,10 +66,10 @@ class NBest(DenseDesignMatrix):
         assert sentence_index == self.num_sentences - 1
         self.mapping = np.cumsum(self.mapping)
         self.X = np.asarray(X, dtype=theano.config.floatX)
-        if word_normalize:
-            pass
-            # self.X[:, :8] /= self.X[:, 8:9]
-            # self.X[:, 9:] /= self.X[:, 8:9]
+        if pca:
+            pca = PCA(n_components=pca, whiten=True)
+            pca.fit(self.X)
+            self.X = pca.transform(self.X)
         self.bleu_stats = np.asarray(bleu_stats, dtype='uint32')
         self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
         super(NBest, self).__init__(X=self.X, y=self.y)
