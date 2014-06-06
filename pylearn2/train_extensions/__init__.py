@@ -88,7 +88,6 @@ class BLEU(TrainExtension):
         print "MERT BLEU: " + str(100 * self.score(dataset,
                                                    dataset.mapping[:-1]))
         best_indices = self.get_best(dataset)
-        print "BLEU: " + str(100 * self.score(dataset, best_indices))
         dataset.rescore(best_indices)
 
     def score(self, dataset, indices):
@@ -106,7 +105,9 @@ class BLEU(TrainExtension):
 
     def on_monitor(self, model, dataset, algorithm):
         best_indices = self.get_best(dataset)
-        print "         BLEU: " + str(100 * self.score(dataset, best_indices))
+        print "        BLEU: " + str(100 * self.score(dataset, best_indices))
+        print "        Average rank: " + str(np.mean(best_indices -
+                                                     dataset.mapping[:-1]))
         dataset.rescore(best_indices)
 
 

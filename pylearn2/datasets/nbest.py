@@ -23,6 +23,7 @@ class NBest(DenseDesignMatrix):
         The reference translation
     """
     def __init__(self, nbest_file=None, reference_file=None):
+        self.scored = False
         if nbest_file is None or reference_file is None:
             raise ValueError
         # Count the number of sentences in the reference translation
@@ -71,11 +72,27 @@ class NBest(DenseDesignMatrix):
 
     def rescore(self, indices):
         print "Rescoring..."
-        best_stats = np.sum(self.bleu_stats[indices], axis=0)
-        for i, stats in enumerate(self.bleu_stats):
-            # stats are the stats per sentence
-            # best_stats are the sum of current best
-            self.y[i] = self.sentence_bleu(stats, best_stats)
+        if not self.scored:
+            # best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
+            for i, stats in enumerate(self.bleu_stats):
+                # stats are the stats per sentence
+                # best_stats are the sum of current best
+                self.y[i] = self.sentence_bleu(stats)
+                # self.y[i] = np.random.rand()
+            print "Average BLEU+1: " + str(np.mean(self.y))
+            indices = []
+            for i in range(self.num_sentences):
+                indices.append(np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]]))
+            indices = self.mapping[:-1] + indices
+            stats = self.bleu_stats[indices.astype('int16')].sum(axis=0)
+            print "Optimal BLEU: " + str(self.bleu(stats))
+
+            self.scored = True
+        # best_stats = np.sum(self.bleu_stats[indices], axis=0)
+        # for i, stats in enumerate(self.bleu_stats):
+        #     # stats are the stats per sentence
+        #     # best_stats are the sum of current best
+        #     self.y[i] = self.sentence_bleu(stats, best_stats)
 
     def get_stats(self, hypothesis, reference):
         yield len(hypothesis)
@@ -102,7 +119,7 @@ class NBest(DenseDesignMatrix):
         h_len, r_len = stats[:2]
         bp = 1 - (r_len + 1.) / h_len
         if clipped_bp:
-            bp = min(0, bp)
+            bp = min(0., bp) / self.num_sentences
         if best_stats is None:
             log_bleu = sum([np.log((1. + m) / (1. + w))
                             for m, w in zip(stats[2::2], stats[3::2])]) / 4.
@@ -112,7 +129,7 @@ class NBest(DenseDesignMatrix):
                                                   best_stats[3::2],
                                                   stats[2::2],
                                                   stats[3::2])]) / 4.
-        return np.exp(bp + log_bleu)
+        return np.exp(log_bleu)
 
     def bleu(self, stats):
         """
