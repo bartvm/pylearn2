@@ -120,7 +120,7 @@ class BLEU(TrainExtension):
         print "        BLEU: " + str(100 * self.score(dataset, best_indices))
         print "        Average rank: " + str(np.mean(best_indices -
                                                      dataset.mapping[:-1]))
-        self.plot(dataset)
+        # self.plot(dataset)
         dataset.rescore(best_indices)
 
 

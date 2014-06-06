@@ -4,7 +4,9 @@ import logging
 
 from clint.textui import progress
 import numpy as np
+from sklearn.decomposition import PCA
 import theano
+
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 
 
