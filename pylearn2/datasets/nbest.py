@@ -22,7 +22,8 @@ class NBest(DenseDesignMatrix):
     reference : filename
         The reference translation
     """
-    def __init__(self, nbest_file=None, reference_file=None):
+    def __init__(self, nbest_file=None, reference_file=None,
+                 word_normalize=False, normalize=False, center=False):
         self.scored = False
         if nbest_file is None or reference_file is None:
             raise ValueError
@@ -35,7 +36,7 @@ class NBest(DenseDesignMatrix):
             for num_nbest, _ in enumerate(f):
                 pass
             self.num_nbest = num_nbest + 1
-        self.mapping = np.zeros((self.num_sentences + 1,), dtype='uint16')
+        self.mapping = np.zeros((self.num_sentences + 1,), dtype='int')
         X = []
         bleu_stats = []
         with progress.Bar(label="Reading n-best list ",
@@ -63,6 +64,10 @@ class NBest(DenseDesignMatrix):
         assert sentence_index == self.num_sentences - 1
         self.mapping = np.cumsum(self.mapping)
         self.X = np.asarray(X, dtype=theano.config.floatX)
+        if word_normalize:
+            pass
+            # self.X[:, :8] /= self.X[:, 8:9]
+            # self.X[:, 9:] /= self.X[:, 8:9]
         self.bleu_stats = np.asarray(bleu_stats, dtype='uint32')
         self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
         super(NBest, self).__init__(X=self.X, y=self.y)
@@ -82,9 +87,11 @@ class NBest(DenseDesignMatrix):
             print "Average BLEU+1: " + str(np.mean(self.y))
             indices = []
             for i in range(self.num_sentences):
-                indices.append(np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]]))
+                indices.append(
+                    np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]])
+                )
             indices = self.mapping[:-1] + indices
-            stats = self.bleu_stats[indices.astype('int16')].sum(axis=0)
+            stats = self.bleu_stats[indices.astype('int')].sum(axis=0)
             print "Optimal BLEU: " + str(self.bleu(stats))
 
             self.scored = True

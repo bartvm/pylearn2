@@ -9,6 +9,7 @@ __email__ = "goodfeli@iro"
 import functools
 import logging
 
+from matplotlib import pyplot as plt
 import numpy as np
 from theano import function
 
@@ -83,10 +84,12 @@ class TrainExtension(object):
 
 class BLEU(TrainExtension):
     def setup(self, model, dataset, algorithm):
+        self.epoch = 1
         X = model.get_input_space().make_theano_batch()
         self.score_func = function([X], model.fprop(X))
         print "MERT BLEU: " + str(100 * self.score(dataset,
                                                    dataset.mapping[:-1]))
+        plt.ion()
         best_indices = self.get_best(dataset)
         dataset.rescore(best_indices)
 
@@ -103,11 +106,21 @@ class BLEU(TrainExtension):
             indices.append(np.argmax(y.flatten()) + dataset.mapping[i])
         return indices
 
+    def plot(self, dataset):
+        plt.clf()
+        indices = np.random.choice(range(100000), 5000, False)
+        plt.scatter(dataset.y[indices], self.score_func(dataset.X)[indices])
+        plt.axis([0, 1, 0, 1])
+        plt.title('Epoch %s' % self.epoch)
+        self.epoch += 1
+        plt.draw()
+
     def on_monitor(self, model, dataset, algorithm):
         best_indices = self.get_best(dataset)
         print "        BLEU: " + str(100 * self.score(dataset, best_indices))
         print "        Average rank: " + str(np.mean(best_indices -
                                                      dataset.mapping[:-1]))
+        self.plot(dataset)
         dataset.rescore(best_indices)
 
 
