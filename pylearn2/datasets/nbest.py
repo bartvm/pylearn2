@@ -1,6 +1,7 @@
 from collections import Counter
 import linecache
 import logging
+import os
 
 from clint.textui import progress
 import numpy as np
@@ -11,6 +12,7 @@ from sklearn.utils import array2d, as_float_array
 import theano
 
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
+from pylearn2.utils import py_integer_types
 
 
 log = logging.getLogger(__name__)
@@ -57,13 +59,90 @@ class NBest(DenseDesignMatrix):
     pca : int
         If > 0 then perform whitened PCA and retain
         this number of components
+    weighted_bleu : bool
+        If True, weight the BLEU scores by the counts
+        according to MERT
     """
-    def __init__(self, nbest_file=None, reference_file=None,
-                 sphere=False, zca=False, pca=0):
-        self.scored = False
-        if nbest_file is None or reference_file is None:
-            raise ValueError
-        # Count the number of sentences in the reference translation
+    def __init__(self, nbest_file=None, reference_file=None, sphere_y=False,
+                 sphere=False, zca=False, pca=0, weighted_bleu=False):
+        # Reading data from cache or text file
+        root, ext = os.path.splitext(nbest_file)
+        if (os.path.isfile(root + '.bleu.npy') and
+                os.path.isfile(root + '.features.npy') and
+                os.path.isfile(root + '.mapping.npy')):
+            log.info("Loading n-best from cache")
+            self.X = np.load(root + '.features.npy')
+            self.bleu_stats = np.load(root + '.bleu.npy')
+            self.mapping = np.load(root + '.mapping.npy')
+            self.num_nbest = len(self.X)
+            self.num_sentences = len(self.mapping) - 1
+        else:
+            self.read_nbest(nbest_file, reference_file)
+
+        # Processing features
+        if zca:
+            zca = ZCA(regularization=0)
+            zca.fit(self.X)
+            self.X = zca.transform(self.X)
+        if pca:
+            if isinstance(pca, NBest):
+                self.X = pca.pca.transform(self.X)
+            elif isinstance(pca, py_integer_types):
+                log.info("Performing PCA...")
+                self.pca = PCA(n_components=pca)
+                self.pca.fit(self.X)
+                self.X = self.pca.transform(self.X)
+            else:
+                raise ValueError("Expected NBest or True for pca")
+        if sphere:
+            if isinstance(sphere, NBest):
+                self.X -= sphere.X_mean
+                self.X /= sphere.X_std
+            elif sphere is True:
+                self.X_mean = self.X.mean(axis=0)
+                self.X_std = self.X.std(axis=0)
+                self.X -= self.X_mean
+                self.X /= self.X_std
+            else:
+                raise ValueError("Expected NBest or True for sphere_y")
+
+        # Calculating targets
+        self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
+        if weighted_bleu:
+            best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
+        for i, stats in enumerate(self.bleu_stats):
+            if weighted_bleu:
+                self.y[i] = self.sentence_bleu(stats, best_stats)
+            else:
+                self.y[i] = self.sentence_bleu(stats)
+        if sphere_y:
+            if isinstance(sphere_y, NBest):
+                self.y -= sphere_y.y_mean
+                self.y /= sphere_y.y_std
+            elif sphere_y is True:
+                self.y_mean = self.y.mean()
+                self.y_std = self.y.std()
+                self.y -= self.y_mean
+                self.y /= self.y_std
+            else:
+                raise ValueError("Expected NBest or True for sphere_y")
+
+        # Printing info on best targets
+        indices = []
+        for i in range(self.num_sentences):
+            indices.append(
+                np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]])
+            )
+        indices = self.mapping[:-1] + np.asarray(indices, dtype='uint32')
+        stats = self.bleu_stats[indices].sum(axis=0)
+        log.info("Optimal BLEU: " + str(self.bleu(stats)))
+        log.info("MERT BLEU: " + str(self.bleu(
+            self.bleu_stats[self.mapping[:-1]].sum(axis=0)
+        )))
+
+        super(NBest, self).__init__(X=self.X, y=self.y)
+
+    def read_nbest(self, nbest_file, reference_file):
         with open(reference_file) as f:
             for num_sentences, _ in enumerate(f):
                 pass
@@ -72,7 +151,7 @@ class NBest(DenseDesignMatrix):
             for num_nbest, _ in enumerate(f):
                 pass
             self.num_nbest = num_nbest + 1
-        self.mapping = np.zeros((self.num_sentences + 1,), dtype='int')
+        self.mapping = np.zeros((self.num_sentences + 1,), dtype='uint32')
         X = []
         bleu_stats = []
         with progress.Bar(label="Reading n-best list ",
@@ -98,51 +177,21 @@ class NBest(DenseDesignMatrix):
                     if i % 1000 == 0:
                         bar.show(i)
         assert sentence_index == self.num_sentences - 1
-        self.mapping = np.cumsum(self.mapping)
+
+        # Creating NumPy arrays
+        self.mapping = np.cumsum(self.mapping).astype('uint32')
         self.X = np.asarray(X, dtype=theano.config.floatX)
-        if sphere:
-            self.X -= self.X.mean(axis=0)
-            self.X /= self.X.std(axis=0)
-        if zca:
-            zca = ZCA(regularization=0)
-            zca.fit(self.X)
-            self.X = zca.transform(self.X)
-        if pca:
-            pca = PCA(n_components=pca, whiten=True)
-            pca.fit(self.X)
-            self.X = pca.transform(self.X)
         self.bleu_stats = np.asarray(bleu_stats, dtype='uint32')
-        self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
-        super(NBest, self).__init__(X=self.X, y=self.y)
+
+        # Saving NumPy arrays to disk
+        log.info("Caching features and BLEU scores as NPY files")
+        root, ext = os.path.splitext(nbest_file)
+        np.save(root + '.features.npy', self.X)
+        np.save(root + '.bleu.npy', self.bleu_stats)
+        np.save(root + '.mapping.npy', self.mapping)
 
     def get(self, sources, indices):
         return (self.X[indices], self.y[indices])
-
-    def rescore(self, indices):
-        print "Rescoring..."
-        if not self.scored:
-            # best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
-            for i, stats in enumerate(self.bleu_stats):
-                # stats are the stats per sentence
-                # best_stats are the sum of current best
-                self.y[i] = self.sentence_bleu(stats)
-                # self.y[i] = np.random.rand()
-            print "Average BLEU+1: " + str(np.mean(self.y))
-            indices = []
-            for i in range(self.num_sentences):
-                indices.append(
-                    np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]])
-                )
-            indices = self.mapping[:-1] + indices
-            stats = self.bleu_stats[indices.astype('int')].sum(axis=0)
-            print "Optimal BLEU: " + str(self.bleu(stats))
-
-            self.scored = True
-        # best_stats = np.sum(self.bleu_stats[indices], axis=0)
-        # for i, stats in enumerate(self.bleu_stats):
-        #     # stats are the stats per sentence
-        #     # best_stats are the sum of current best
-        #     self.y[i] = self.sentence_bleu(stats, best_stats)
 
     def get_stats(self, hypothesis, reference):
         yield len(hypothesis)

@@ -84,14 +84,10 @@ class TrainExtension(object):
 
 class BLEU(TrainExtension):
     def setup(self, model, dataset, algorithm):
-        self.epoch = 1
+        self.epoch = 0
         X = model.get_input_space().make_theano_batch()
         self.score_func = function([X], model.fprop(X))
-        print "MERT BLEU: " + str(100 * self.score(dataset,
-                                                   dataset.mapping[:-1]))
         plt.ion()
-        best_indices = self.get_best(dataset)
-        dataset.rescore(best_indices)
 
     def score(self, dataset, indices):
         stats = np.sum(dataset.bleu_stats[indices], axis=0)
@@ -112,7 +108,6 @@ class BLEU(TrainExtension):
         plt.scatter(dataset.y[indices], self.score_func(dataset.X)[indices])
         plt.axis([0, 1, 0, 1])
         plt.title('Epoch %s' % self.epoch)
-        self.epoch += 1
         plt.draw()
 
     def on_monitor(self, model, dataset, algorithm):
@@ -121,7 +116,7 @@ class BLEU(TrainExtension):
         print "        Average rank: " + str(np.mean(best_indices -
                                                      dataset.mapping[:-1]))
         # self.plot(dataset)
-        dataset.rescore(best_indices)
+        self.epoch += 1
 
 
 class SharedSetter(TrainExtension):
