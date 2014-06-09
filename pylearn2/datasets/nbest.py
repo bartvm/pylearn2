@@ -13,6 +13,7 @@ import theano
 
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.utils import py_integer_types
+from pylearn2.utils.iteration import resolve_iterator_class
 
 
 log = logging.getLogger(__name__)
@@ -51,6 +52,8 @@ class NBest(DenseDesignMatrix):
         Name of the nbest list in Moses format
     reference : filename
         The reference translation
+    word_normalize : bool
+        If True, divides all features by the hypothesis length
     sphere : bool
         If True, spheres the data by subtracting the mean and
         dividing by the stdev
@@ -72,6 +75,7 @@ class NBest(DenseDesignMatrix):
 
         # Reading data from cache or text file
         root, ext = os.path.splitext(nbest_file)
+        self.name = root
         if (os.path.isfile(root + '.bleu.npy') and
                 os.path.isfile(root + '.features.npy') and
                 os.path.isfile(root + '.mapping.npy')):
@@ -114,7 +118,7 @@ class NBest(DenseDesignMatrix):
         # Calculating targets
         self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
         if not self.max_margin:
-            log.info("Calculating targets")
+            log.info("Calculating targets..")
             if weighted_bleu:
                 best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
             for i, stats in enumerate(self.bleu_stats):
@@ -140,7 +144,7 @@ class NBest(DenseDesignMatrix):
             indices.append(
                 np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]])
             )
-        indices = self.mapping[:-1] + np.asarray(indices, dtype='uint32')
+            indices = self.mapping[:-1] + np.asarray(indices, dtype='uint32')
         stats = self.bleu_stats[indices].sum(axis=0)
         log.info("Optimal BLEU (" + root + "): " + str(self.bleu(stats)))
         log.info("MERT BLEU (" + root + "): " + str(self.bleu(
@@ -148,6 +152,9 @@ class NBest(DenseDesignMatrix):
         )))
 
         super(NBest, self).__init__(X=self.X, y=self.y)
+        self._iter_subset_class = resolve_iterator_class(
+            'shuffled_sequential'
+        )
 
     def read_nbest(self, nbest_file, reference_file):
         with open(reference_file) as f:
@@ -201,7 +208,10 @@ class NBest(DenseDesignMatrix):
         np.save(root + '.mapping.npy', self.mapping)
 
     def get(self, sources, indices):
-        return (self.X[indices], self.y[indices])
+        if self.max_margin:
+            raise ValueError
+        else:
+            return (self.X[indices], self.y[indices])
 
     def get_stats(self, hypothesis, reference):
         yield len(hypothesis)
