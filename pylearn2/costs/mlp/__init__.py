@@ -49,6 +49,19 @@ class SquaredError(Default):
         return ((model.fprop(X) - y) ** 2).sum(axis=1).mean()
 
 
+class MaxMargin(Default):
+    supervised = True
+
+    def __init__(self, dataset, **kwargs):
+        super(MaxMargin, self).__init__(**kwargs)
+
+    def expr(self, model, data):
+        space, sources = self.get_data_specs(model)
+        space.validate(data)
+        X, y = data
+        return y.sum(axis=1).mean()
+
+
 class WeightDecay(NullDataSpecsMixin, Cost):
     """
     coeff * sum(sqr(weights))

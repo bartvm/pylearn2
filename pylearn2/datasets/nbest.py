@@ -62,9 +62,14 @@ class NBest(DenseDesignMatrix):
     weighted_bleu : bool
         If True, weight the BLEU scores by the counts
         according to MERT
+    max_margin : bool
+        If True, the targets become maximum margin classifiers instead
     """
     def __init__(self, nbest_file=None, reference_file=None, sphere_y=False,
-                 sphere=False, zca=False, pca=0, weighted_bleu=False):
+                 sphere=False, zca=False, pca=0, weighted_bleu=False,
+                 max_margin=False):
+        self.max_margin = max_margin
+
         # Reading data from cache or text file
         root, ext = os.path.splitext(nbest_file)
         if (os.path.isfile(root + '.bleu.npy') and
@@ -108,24 +113,26 @@ class NBest(DenseDesignMatrix):
 
         # Calculating targets
         self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
-        if weighted_bleu:
-            best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
-        for i, stats in enumerate(self.bleu_stats):
+        if not self.max_margin:
+            log.info("Calculating targets")
             if weighted_bleu:
-                self.y[i] = self.sentence_bleu(stats, best_stats)
-            else:
-                self.y[i] = self.sentence_bleu(stats)
-        if sphere_y:
-            if isinstance(sphere_y, NBest):
-                self.y -= sphere_y.y_mean
-                self.y /= sphere_y.y_std
-            elif sphere_y is True:
-                self.y_mean = self.y.mean()
-                self.y_std = self.y.std()
-                self.y -= self.y_mean
-                self.y /= self.y_std
-            else:
-                raise ValueError("Expected NBest or True for sphere_y")
+                best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
+            for i, stats in enumerate(self.bleu_stats):
+                if weighted_bleu:
+                    self.y[i] = self.sentence_bleu(stats, best_stats)
+                else:
+                    self.y[i] = self.sentence_bleu(stats)
+            if sphere_y:
+                if isinstance(sphere_y, NBest):
+                    self.y -= sphere_y.y_mean
+                    self.y /= sphere_y.y_std
+                elif sphere_y is True:
+                    self.y_mean = self.y.mean()
+                    self.y_std = self.y.std()
+                    self.y -= self.y_mean
+                    self.y /= self.y_std
+                else:
+                    raise ValueError("Expected NBest or True for sphere_y")
 
         # Printing info on best targets
         indices = []
@@ -135,8 +142,8 @@ class NBest(DenseDesignMatrix):
             )
         indices = self.mapping[:-1] + np.asarray(indices, dtype='uint32')
         stats = self.bleu_stats[indices].sum(axis=0)
-        log.info("Optimal BLEU: " + str(self.bleu(stats)))
-        log.info("MERT BLEU: " + str(self.bleu(
+        log.info("Optimal BLEU (" + root + "): " + str(self.bleu(stats)))
+        log.info("MERT BLEU (" + root + "): " + str(self.bleu(
             self.bleu_stats[self.mapping[:-1]].sum(axis=0)
         )))
 
@@ -157,9 +164,12 @@ class NBest(DenseDesignMatrix):
         with progress.Bar(label="Reading n-best list ",
                           expected_size=self.num_nbest) as bar:
             with open(nbest_file) as f:
+                first_line = None
                 for i, line in enumerate(f):
                     fields = [field.strip() for field in line.split('|||')]
-                    sentence_index = int(fields[0])
+                    if first_line is None:
+                        first_line = int(fields[0])
+                    sentence_index = int(fields[0]) - first_line
                     hypothesis = fields[1].split()
                     reference = linecache.getline(reference_file,
                                                   sentence_index + 1).split()
