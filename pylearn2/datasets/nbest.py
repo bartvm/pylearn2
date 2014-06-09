@@ -5,10 +5,7 @@ import os
 
 from clint.textui import progress
 import numpy as np
-from scipy import linalg
-from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.decomposition import PCA
-from sklearn.utils import array2d, as_float_array
 import theano
 
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
@@ -17,29 +14,6 @@ from pylearn2.utils.iteration import resolve_iterator_class
 
 
 log = logging.getLogger(__name__)
-
-
-class ZCA(BaseEstimator, TransformerMixin):
-    def __init__(self, regularization=10**-5, copy=False):
-        self.regularization = regularization
-        self.copy = copy
-
-    def fit(self, X, y=None):
-        X = array2d(X)
-        X = as_float_array(X, copy=self.copy)
-        self.mean_ = np.mean(X, axis=0)
-        X -= self.mean_
-        sigma = np.dot(X.T, X) / X.shape[1]
-        U, S, V = linalg.svd(sigma)
-        tmp = np.dot(U, np.diag(1/np.sqrt(S+self.regularization)))
-        self.components_ = np.dot(tmp, U.T)
-        return self
-
-    def transform(self, X):
-        X = array2d(X)
-        X_transformed = X - self.mean_
-        X_transformed = np.dot(X_transformed, self.components_.T)
-        return X_transformed
 
 
 class NBest(DenseDesignMatrix):
@@ -57,8 +31,6 @@ class NBest(DenseDesignMatrix):
     sphere : bool
         If True, spheres the data by subtracting the mean and
         dividing by the stdev
-    zca : bool
-        If True, performs ZCA on the data
     pca : int
         If > 0 then perform whitened PCA and retain
         this number of components
@@ -69,7 +41,7 @@ class NBest(DenseDesignMatrix):
         If True, the targets become maximum margin classifiers instead
     """
     def __init__(self, nbest_file=None, reference_file=None, sphere_y=False,
-                 sphere=False, zca=False, pca=0, weighted_bleu=False,
+                 sphere=False, pca=0, weighted_bleu=False,
                  max_margin=False):
         self.max_margin = max_margin
 
@@ -89,10 +61,6 @@ class NBest(DenseDesignMatrix):
             self.read_nbest(nbest_file, reference_file)
 
         # Processing features
-        if zca:
-            zca = ZCA(regularization=0)
-            zca.fit(self.X)
-            self.X = zca.transform(self.X)
         if pca:
             if isinstance(pca, NBest):
                 self.X = pca.pca.transform(self.X)
@@ -120,7 +88,14 @@ class NBest(DenseDesignMatrix):
         if not self.max_margin:
             log.info("Calculating targets..")
             if weighted_bleu:
-                best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
+                if isinstance(weighted_bleu, NBest):
+                    best_stats = np.sum(
+                        weighted_bleu.bleu_stats[weighted_bleu.mapping[:-1]],
+                        axis=0
+                    )
+                elif weighted_bleu is True:
+                    best_stats = np.sum(self.bleu_stats[self.mapping[:-1]],
+                                        axis=0)
             for i, stats in enumerate(self.bleu_stats):
                 if weighted_bleu:
                     self.y[i] = self.sentence_bleu(stats, best_stats)
@@ -144,10 +119,10 @@ class NBest(DenseDesignMatrix):
             indices.append(
                 np.argmax(self.y[self.mapping[i]:self.mapping[i + 1]])
             )
-            indices = self.mapping[:-1] + np.asarray(indices, dtype='uint32')
+        indices = self.mapping[:-1] + np.asarray(indices, dtype='uint32')
         stats = self.bleu_stats[indices].sum(axis=0)
-        log.info("Optimal BLEU (" + root + "): " + str(self.bleu(stats)))
-        log.info("MERT BLEU (" + root + "): " + str(self.bleu(
+        log.info("Optimal BLEU (" + root + "): " + str(100 * self.bleu(stats)))
+        log.info("MERT BLEU (" + root + "): " + str(100 * self.bleu(
             self.bleu_stats[self.mapping[:-1]].sum(axis=0)
         )))
 

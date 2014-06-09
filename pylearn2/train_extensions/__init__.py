@@ -83,6 +83,10 @@ class TrainExtension(object):
 
 
 class BLEU(TrainExtension):
+    def __init__(self, datasets, **kwargs):
+        self.datasets = datasets
+        super(BLEU, self).__init__(**kwargs)
+
     def setup(self, model, dataset, algorithm):
         self.epoch = 0
         X = model.get_input_space().make_theano_batch()
@@ -111,10 +115,15 @@ class BLEU(TrainExtension):
         plt.draw()
 
     def on_monitor(self, model, dataset, algorithm):
-        best_indices = self.get_best(dataset)
-        print "        BLEU: " + str(100 * self.score(dataset, best_indices))
-        print "        Average rank: " + str(np.mean(best_indices -
-                                                     dataset.mapping[:-1]))
+        for dataset in self.datasets:
+            best_indices = self.get_best(dataset)
+            if self.epoch % 1 == 0:
+                print "        BLEU (" + dataset.name + "): " + str(
+                    100 * self.score(dataset, best_indices)
+                )
+                print "        Average rank (" + dataset.name + "): " + str(
+                    np.mean(best_indices - dataset.mapping[:-1])
+                )
         # self.plot(dataset)
         self.epoch += 1
 
