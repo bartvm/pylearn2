@@ -11,6 +11,7 @@ from sklearn.utils import array2d, as_float_array
 import theano
 
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
+from pylearn2.utils.iteration import resolve_iterator_class
 
 
 log = logging.getLogger(__name__)
@@ -49,6 +50,8 @@ class NBest(DenseDesignMatrix):
         Name of the nbest list in Moses format
     reference : filename
         The reference translation
+    word_normalize : bool
+        If True, divides all features by the hypothesis length
     sphere : bool
         If True, spheres the data by subtracting the mean and
         dividing by the stdev
@@ -58,11 +61,12 @@ class NBest(DenseDesignMatrix):
         If > 0 then perform whitened PCA and retain
         this number of components
     """
-    def __init__(self, nbest_file=None, reference_file=None,
-                 sphere=False, zca=False, pca=0):
+    def __init__(self, nbest_file=None, reference_file=None, sphere_y=False,
+                 word_normalize=False, sphere=False, zca=False, pca=0):
         self.scored = False
         if nbest_file is None or reference_file is None:
             raise ValueError
+        self.sphere_y = sphere_y
         # Count the number of sentences in the reference translation
         with open(reference_file) as f:
             for num_sentences, _ in enumerate(f):
@@ -100,19 +104,23 @@ class NBest(DenseDesignMatrix):
         assert sentence_index == self.num_sentences - 1
         self.mapping = np.cumsum(self.mapping)
         self.X = np.asarray(X, dtype=theano.config.floatX)
-        if sphere:
-            self.X -= self.X.mean(axis=0)
-            self.X /= self.X.std(axis=0)
+        if word_normalize:
+            self.X[:, :8] /= self.X[:, 8:9]
+            self.X[:, 9:] /= self.X[:, 8:9]
         if zca:
             zca = ZCA(regularization=0)
             zca.fit(self.X)
             self.X = zca.transform(self.X)
         if pca:
-            pca = PCA(n_components=pca, whiten=True)
+            pca = PCA(n_components=pca)
             pca.fit(self.X)
             self.X = pca.transform(self.X)
+        if sphere:
+            self.X -= self.X.mean(axis=0)
+            self.X /= self.X.std(axis=0)
         self.bleu_stats = np.asarray(bleu_stats, dtype='uint32')
         self.y = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
+        self._iter_subset_class = resolve_iterator_class('shuffled_sequential')
         super(NBest, self).__init__(X=self.X, y=self.y)
 
     def get(self, sources, indices):
@@ -127,6 +135,9 @@ class NBest(DenseDesignMatrix):
                 # best_stats are the sum of current best
                 self.y[i] = self.sentence_bleu(stats)
                 # self.y[i] = np.random.rand()
+            if self.sphere_y:
+                self.y -= self.y.mean()
+                self.y /= self.y.std()
             print "Average BLEU+1: " + str(np.mean(self.y))
             indices = []
             for i in range(self.num_sentences):
@@ -135,7 +146,19 @@ class NBest(DenseDesignMatrix):
                 )
             indices = self.mapping[:-1] + indices
             stats = self.bleu_stats[indices.astype('int')].sum(axis=0)
-            print "Optimal BLEU: " + str(self.bleu(stats))
+            print "Optimal by BLEU+1: " + str(self.bleu(stats))
+            indices = []
+            best_stats = np.sum(self.bleu_stats[self.mapping[:-1]], axis=0)
+            self.y_weighted = np.zeros((self.num_nbest, 1), dtype=theano.config.floatX)
+            for i, stats in enumerate(self.bleu_stats):
+                self.y_weighted[i] = self.sentence_bleu(stats, best_stats)
+            for i in range(self.num_sentences):
+                indices.append(
+                    np.argmax(self.y_weighted[self.mapping[i]:self.mapping[i + 1]])
+                )
+            indices = self.mapping[:-1] + indices
+            stats = self.bleu_stats[indices.astype('int')].sum(axis=0)
+            print "Optimal by weighted BLEU+1: " + str(self.bleu(stats))
 
             self.scored = True
         # best_stats = np.sum(self.bleu_stats[indices], axis=0)
