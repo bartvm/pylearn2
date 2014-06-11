@@ -11,6 +11,7 @@ import logging
 
 from matplotlib import pyplot as plt
 import numpy as np
+from scipy.stats import pearsonr
 from theano import function
 
 logger = logging.getLogger(__name__)
@@ -118,11 +119,15 @@ class BLEU(TrainExtension):
         for dataset in self.datasets:
             best_indices = self.get_best(dataset)
             if self.epoch % 1 == 0:
-                print "        BLEU (" + dataset.name + "): " + str(
+                print "        Dataset " + dataset.name + ":"
+                print "            BLEU: " + str(
                     100 * self.score(dataset, best_indices)
                 )
-                print "        Average rank (" + dataset.name + "): " + str(
+                print "            Average rank: " + str(
                     np.mean(best_indices - dataset.mapping[:-1])
+                )
+                print "            Pearson coefficient: " + str(
+                    pearsonr(dataset.y, self.score_func(dataset.X))[0][0]
                 )
         # self.plot(dataset)
         self.epoch += 1
