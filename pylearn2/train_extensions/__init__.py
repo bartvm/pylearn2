@@ -122,7 +122,7 @@ class WordRelationship(TrainExtension):
         categories = []
         with open(questions) as f:
             for i, line in enumerate(f):
-                words = line.strip().split()
+                words = line.strip().lower().split()
                 if words[0] == ':':
                     categories.append((i, words[1]))
                     continue
