@@ -107,6 +107,12 @@ class WordRelationship(TrainExtension):
         Each tuple is of the form (int, string) where
         string is the name of the category and int is the
         index of the first question in that category
+    most_similar : theano function
+        Takes a vector of 3 integers (int32) and returns
+        the index of the nearest vector by cosine similarity.
+    similarity : theano function
+        Takes 4 integers and returns the similarity between
+        2 - 1 + 3 and 4
     """
     def __init__(self, vocab, questions, UNK=0):
         # Load the vocabulary and binarize the questions
@@ -123,7 +129,7 @@ class WordRelationship(TrainExtension):
                 binarized_questions.append([vocab.get(word, UNK)
                                             for word in words])
         self.categories = categories
-        self.questions = binarized_questions
+        self.questions = np.array(binarized_questions, dtype='int32')
 
     @functools.wraps(TrainExtension.setup)
     def setup(self, model, dataset, algorithm):
@@ -140,14 +146,22 @@ class WordRelationship(TrainExtension):
 
         self.most_similar = function([word_indices], most_similar)
 
+        # Create a Theano function that takes 4 words and calculates
+        # the similarity between B - A + C and D
+
+        self.similarity = function([word_indices],
+                                   similarities[word_indices[3]])
 
     @functools.wraps(TrainExtension.on_monitor)
     def on_monitor(self, model, dataset, algorithm):
-        i = 0.
+        num_correct = 0.
+        sum_similarity = 0.
         for question in self.questions:
-            i += (self.most_similar(question[:3]) == question[-1])
-        print "Accuracy: %s%%" % (i * 100. / len(self.questions))
-
+            num_correct += (self.most_similar(question[:3]) == question[-1])
+            sum_similarity += self.similarity(question)
+        print "Avg. cos similarity: %s" % (sum_similarity /
+                                           len(self.questions))
+        print "Accuracy: %s%%" % (num_correct * 100. / len(self.questions))
 
 
 class SharedSetter(TrainExtension):
