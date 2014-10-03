@@ -32,7 +32,6 @@ class Model(object):
         Plugins to extend the model's functionality
     """
 
-    __metaclass__ = MetaLibVersion
     _test_batch_size = 2
 
     def __init__(self, extensions=None):
