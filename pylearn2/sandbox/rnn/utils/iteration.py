@@ -113,6 +113,9 @@ class SequenceDatasetIterator(FiniteDatasetIterator):
                                                  self._convert):
             rval = data[next_index]
             if isinstance(space, SequenceDataSpace):
+                # Create mask
+                mask = self._create_mask(rval)
+
                 # Add padding
                 max_sequence_length = max(len(sample) for sample
                                           in rval)
@@ -124,9 +127,7 @@ class SequenceDatasetIterator(FiniteDatasetIterator):
                 if fn:
                     rval = fn(rval)
                 rvals.append(rval)
-
-                # Create mask
-                rvals.append(self._create_mask(rval))
+                rvals.append(mask)
             else:
                 if fn:
                     rval = fn(rval)
