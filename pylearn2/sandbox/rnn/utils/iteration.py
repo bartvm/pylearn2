@@ -102,7 +102,7 @@ class SequenceDatasetIterator(FiniteDatasetIterator):
         mask = np.zeros((max_sequence_length, len(data)), dtype=config.floatX)
         for i, sequence_length in enumerate(sequence_lengths):
             mask[:sequence_length, i] = 1
-        return mask.T
+        return mask
 
     @wraps(FiniteDatasetIterator.next)
     def next(self):

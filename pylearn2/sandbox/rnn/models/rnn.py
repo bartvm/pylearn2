@@ -182,7 +182,10 @@ class Recurrent(Layer):
         if (state is not None) or (state_below is not None):
             if state is None:
                 state = self.fprop(state_below)
-            state, _ = state
+            try:
+                state, _ = state
+            except:
+                pass
             state_below, _ = state_below
 
             mx = state.max(axis=0)
@@ -230,32 +233,42 @@ class Recurrent(Layer):
         if self.dim == 1:
             # This should fix the bug described in Theano issue #1772
             z0 = tensor.unbroadcast(z0, 1)
+        z0.name = 'z0'
 
         # Later we will add a noise function
         W, U, b = self._params
+        W.name = 'W'
+        U.name = 'U'
+        b.name = 'b'
 
         # It is faster to do the input-to-hidden matrix multiplications
         # outside of scan
         state_below = tensor.dot(state_below, W) + b
+        state_below.name = 'recurrent_input'
 
         def fprop_step(state_below, mask, state_before, U):
             z = self.nonlinearity(state_below +
                                   tensor.dot(state_before, U))
+            z.name = 'step'
 
             # Only update the state for non-masked data, otherwise
             # just carry on the previous state until the end
             z = mask[:, None] * z + (1 - mask[:, None]) * state_before
+            z.name = 'masked_step'
             return z
 
         z, updates = scan(fn=fprop_step, sequences=[state_below, mask],
                           outputs_info=[z0], non_sequences=[U])
+        z.name = 'recurrent_out'
         self._scan_updates.update(updates)
 
         if self.indices is not None:
             if len(self.indices) > 1:
-                return [z[i] for i in self.indices]
+                raise ValueError
             else:
-                return z[self.indices[0]]
+                z = z[self.indices[0]]
+                z.name = 'last_state'
+                return z
         else:
             return (z, mask)
 
