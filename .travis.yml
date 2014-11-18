@@ -27,4 +27,4 @@ env:
 script:
   - sh .travis.sh
 after_script:
-  - coveralls
+  - if [ ! $TEST_DOC ]; then coveralls; fi
