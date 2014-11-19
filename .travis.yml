@@ -27,4 +27,4 @@ env:
 script:
   - sh .travis.sh
 after_script:
-  - if [[ ! $TEST_DOC ]] && [[ $FLAGS == *32 ]] && [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then coveralls; fi
+  - coveralls
