@@ -27,4 +27,4 @@ env:
 script:
   - sh .travis.sh
 after_script:
-  - coveralls
+  - coveralls --verbose
