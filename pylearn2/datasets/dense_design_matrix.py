@@ -257,12 +257,10 @@ class DenseDesignMatrix(Dataset):
             assert self.X is not None
             assert self.view_converter is None
             assert self.X.ndim <= 2
-            assert np.all(self.X < self.X_labels)
 
         if self.y_labels is not None:
             assert self.y is not None
             assert self.y.ndim <= 2
-            assert np.all(self.y < self.y_labels)
 
     @functools.wraps(Dataset.iterator)
     def iterator(self, mode=None, batch_size=None, num_batches=None,
@@ -312,7 +310,7 @@ class DenseDesignMatrix(Dataset):
         if rng is None and mode.stochastic:
             rng = self.rng
         return FiniteDatasetIterator(self,
-                                     mode(self.X.shape[0],
+                                     mode(self.get_num_examples(),
                                           batch_size,
                                           num_batches,
                                           rng),
